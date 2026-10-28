@@ -1,0 +1,111 @@
+
+services:
+  metadata:
+    build: .
+    image: ds-midterm-storage:local
+    command: ["python", "-m", "uvicorn", "metadata_service:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    networks:
+      - storage-network
+    environment:
+      DATABASE_URL: postgresql://dsuser:dsdevpassword@postgres:5432/dsmetadata
+      INITIAL_NODES: node1,node2,node3,node4
+      REPLICAS: "3"
+      WRITE_QUORUM: "2"
+      NODE_URL_TEMPLATE: "http://{node_id}:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: dsmetadata
+      POSTGRES_USER: dsuser
+      POSTGRES_PASSWORD: dsdevpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dsuser -d dsmetadata"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - storage-network
+
+  node1:
+    image: ds-midterm-storage:local
+    command: ["python", "-m", "uvicorn", "storage_node:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      NODE_ID: node1
+      DATA_DIR: /data
+      METADATA_URL: http://metadata:8000/heartbeat
+      HEARTBEAT_INTERVAL: "5"
+    volumes:
+      - ../data/storage/node1:/data
+    ports:
+      - "8101:8001"
+    depends_on:
+      - metadata
+    networks:
+      - storage-network
+
+  node2:
+    image: ds-midterm-storage:local
+    command: ["python", "-m", "uvicorn", "storage_node:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      NODE_ID: node2
+      DATA_DIR: /data
+      METADATA_URL: http://metadata:8000/heartbeat
+      HEARTBEAT_INTERVAL: "5"
+    volumes:
+      - ../data/storage/node2:/data
+    ports:
+      - "8102:8001"
+    depends_on:
+      - metadata
+    networks:
+      - storage-network
+
+  node3:
+    image: ds-midterm-storage:local
+    command: ["python", "-m", "uvicorn", "storage_node:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      NODE_ID: node3
+      DATA_DIR: /data
+      METADATA_URL: http://metadata:8000/heartbeat
+      HEARTBEAT_INTERVAL: "5"
+    volumes:
+      - ../data/storage/node3:/data
+    ports:
+      - "8103:8001"
+    depends_on:
+      - metadata
+    networks:
+      - storage-network
+
+  node4:
+    image: ds-midterm-storage:local
+    command: ["python", "-m", "uvicorn", "storage_node:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      NODE_ID: node4
+      DATA_DIR: /data
+      METADATA_URL: http://metadata:8000/heartbeat
+      HEARTBEAT_INTERVAL: "5"
+    volumes:
+      - ../data/storage/node4:/data
+    ports:
+      - "8104:8001"
+    depends_on:
+      - metadata
+    networks:
+      - storage-network
+
+networks:
+  storage-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
